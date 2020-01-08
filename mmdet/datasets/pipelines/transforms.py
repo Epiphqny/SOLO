@@ -659,7 +659,7 @@ class SoloTrainTrans(object):
         y_mean = (y1+y2)/2
         h = (y2-y1)
         w = (x2-x1)
-        ratio = 0.2
+        ratio = 0.1
         left = x_mean-ratio*w
         right = x_mean+ratio*w
         top = y_mean-ratio*h
