@@ -14,7 +14,7 @@ model = dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
         out_channels=256,
-        start_level=1,
+        start_level=0,
         add_extra_convs=True,
         extra_convs_on_inputs=False,  # use P5
         num_outs=5,
@@ -25,7 +25,7 @@ model = dict(
         in_channels=256,
         stacked_convs=7,
         feat_channels=256,
-        strides=[8, 16, 32, 64, 128],
+        strides=[4, 8, 16, 32, 64],
         loss_cls=dict(
             type='FocalLoss',
             use_sigmoid=True,
@@ -82,8 +82,8 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    imgs_per_gpu=3,
-    workers_per_gpu=3,
+    imgs_per_gpu=1,
+    workers_per_gpu=1,
     train=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_train2017.json',
@@ -128,7 +128,7 @@ total_epochs = 36
 device_ids = range(8)
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = './work_dirs/r50'
+work_dir = './work_dirs/r50_sep'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

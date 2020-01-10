@@ -72,16 +72,11 @@ class SoloHead(nn.Module):
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg,
                     bias=self.norm_cfg is None))
-        self.solo_cls = nn.Conv2d(
-            self.feat_channels, self.cls_out_channels, 3, padding=1)
-
-        #use P3-P7 now, will change to P2-P6 later
-        self.solo_mask3 = nn.Conv2d(self.feat_channels, 40*40, 1, padding=0)
-        self.solo_mask4 = nn.Conv2d(self.feat_channels, 36*36, 1, padding=0)
-        self.solo_mask5 = nn.Conv2d(self.feat_channels, 24*24, 1, padding=0)
-        self.solo_mask6 = nn.Conv2d(self.feat_channels, 16*16, 1, padding=0)
-        self.solo_mask7 = nn.Conv2d(self.feat_channels, 12*12, 1, padding=0)
-
+        self.solo_cls = nn.ModuleList([nn.Conv2d(
+            self.feat_channels, self.cls_out_channels, 1, padding=0) for _ in self.grid_num])
+        self.solo_mask = nn.ModuleList([nn.Conv2d(
+            self.feat_channels, num**2, 1, padding=0) for num in self.grid_num])
+        
         self.scales = nn.ModuleList([Scale(1.0) for _ in self.strides])
 
     def init_weights(self):
@@ -89,38 +84,29 @@ class SoloHead(nn.Module):
             normal_init(m.conv, std=0.01)
         for m in self.mask_convs:
             normal_init(m.conv, std=0.01)
+       
         bias_cls = bias_init_with_prob(0.01)
-        normal_init(self.solo_cls, std=0.01, bias=bias_cls)
-        normal_init(self.solo_mask3, std=0.01)
-        normal_init(self.solo_mask4, std=0.01)
-        normal_init(self.solo_mask5, std=0.01)
-        normal_init(self.solo_mask6, std=0.01)
-        normal_init(self.solo_mask7, std=0.01)
-
+        for m in self.solo_cls:
+            normal_init(m, std=0.01, bias=bias_cls)
+        for m in self.solo_mask:
+            normal_init(m, std=0.01)
     def forward(self, feats):
-        cls_score, mask_feats = multi_apply(self.forward_single, feats, self.scales)
-        mask_feats[0] = self.solo_mask3(mask_feats[0])
-        mask_feats[1] = self.solo_mask4(mask_feats[1])
-        mask_feats[2] = self.solo_mask5(mask_feats[2])
-        mask_feats[3] = self.solo_mask6(mask_feats[3])
-        mask_feats[4] = self.solo_mask7(mask_feats[4])
-        for i in range(5):
-            cls_score[i]=F.upsample_bilinear(cls_score[i],(self.grid_num[i],self.grid_num[i]))
-        return cls_score, mask_feats
+        cls_score, mask_score = multi_apply(self.forward_single, feats, self.solo_cls, self.solo_mask, self.grid_num)
+        return cls_score, mask_score
 
-    def forward_single(self, x, scale):
-        cls_feat = x
+    def forward_single(self, x, solo_cls, solo_mask, grid_num):
+        cls_feat = F.upsample_bilinear(x,(grid_num,grid_num))
         mask_feat = x
-
         for cls_layer in self.cls_convs:
             cls_feat = cls_layer(cls_feat)
-        cls_score = self.solo_cls(cls_feat)
+        cls_score = solo_cls(cls_feat)
 
         for mask_layer in self.mask_convs:
             mask_feat = mask_layer(mask_feat)
+        mask_score = solo_mask(mask_feat)
         # scale the bbox_pred of different level
         # float to avoid overflow when enabling FP16
-        return cls_score, mask_feat
+        return cls_score, mask_score
 
     def dice_loss(self,input, target):
         smooth = 1.
@@ -158,7 +144,7 @@ class SoloHead(nn.Module):
         num_imgs=len(category_targets)
         for i in range(num_imgs):
             _, i_h, i_w = gt_masks[i].shape
-            gt_masks[i] = nn.ConstantPad2d((0,b_w*8-i_w,0,b_h*8-i_h),0)(torch.tensor(gt_masks[i]))
+            gt_masks[i] = nn.ConstantPad2d((0,b_w*self.strides[0]-i_w,0,b_h*self.strides[0]-i_h),0)(torch.tensor(gt_masks[i]))
             gt_masks[i] = F.upsample_bilinear(gt_masks[i].float().unsqueeze(0),(b_h,b_w))[0]
         
         flatten_cls_scores = [cls_score.permute(0, 2, 3, 1).reshape(num_imgs,-1, self.cls_out_channels) for cls_score in cls_scores]
@@ -201,7 +187,7 @@ class SoloHead(nn.Module):
             labels = labels[topk_inds]
 
             mask_preds = mask_preds[topk_inds]
-            mask_preds = F.upsample_bilinear(mask_preds.unsqueeze(0), (b_h*8, b_w*8))
+            mask_preds = F.upsample_bilinear(mask_preds.unsqueeze(0), (b_h*self.strides[0], b_w*self.strides[0]))
             mask_preds = mask_preds[:, :, :crop_h, :crop_w]
             mask_preds = F.sigmoid(F.upsample_bilinear(mask_preds, (ori_h, ori_w)))[0]
             mask_preds = mask_preds > mask_thr
