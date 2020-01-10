@@ -19,13 +19,17 @@ The code only implements the simplest version of SOLO:
 * without CoordConv
 * using vanilla SOLO instead of Decoupled SOLO
 * 3x training schedule
-* using the default FPN featuremaps: P3 to P7 which is P2 to P6 in the paper with different specific strides and instance scale selection
+* using the default FPN featuremaps: in the paper it is with different specific strides and instance scale selection
 * implemented the simplest mask-nms: as the authors did not describe it in detail in the paper, the implemented nms is slow,  will improve it in the future.
 * **still in progress**
 
 ## Results
 
-Both good and bad results, the images are achieved after training 13 epochs on the coco dataset using the resnet-50 backbone.
+After training 6 epoches on the coco dataset using the resnet-50 backbone, the AP is 0.091 on val2017 dataset:
+
+![](AP.jpg)
+
+Both good and bad results:
 
 ![](solo.jpg)
 
