@@ -23,13 +23,10 @@ class Solo(SingleStageDetector):
                       gt_bboxes,
                       gt_labels,
                       gt_masks,
-                      category_targets,
-                      point_ins,
                       gt_bboxes_ignore=None):
         x = self.extract_feat(img)
         outs = self.bbox_head(x)
         loss_inputs = outs + (gt_bboxes, gt_labels, gt_masks, 
-                             category_targets,point_ins,
                              img_metas, self.train_cfg)
         losses = self.bbox_head.loss(
             *loss_inputs, gt_bboxes_ignore=gt_bboxes_ignore)

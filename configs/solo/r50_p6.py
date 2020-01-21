@@ -14,18 +14,17 @@ model = dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
         out_channels=256,
-        start_level=1,
-        add_extra_convs=True,
-        extra_convs_on_inputs=False,  # use P5
-        num_outs=5,
-        relu_before_extra_convs=True),
+        start_level=0,
+        num_outs=5),
     bbox_head=dict(
         type='SoloHead',
         num_classes=81,
         in_channels=256,
         stacked_convs=7,
         feat_channels=256,
-        strides=[8, 16, 32, 64, 128],
+        radius=0.2,
+        dice_weight=3.0,
+        strides=[4, 8, 16, 32, 64],
         loss_cls=dict(
             type='FocalLoss',
             use_sigmoid=True,
@@ -51,20 +50,19 @@ test_cfg = dict(
     mask_thr_binary=0.5,
     max_per_img=100)
 # dataset settings
-dataset_type = 'CocoSoloDataset'
+dataset_type = 'CocoDataset'
 data_root = 'data/coco/'
 img_norm_cfg = dict(
     mean=[102.9801, 115.9465, 122.7717], std=[1.0, 1.0, 1.0], to_rgb=False)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
+    dict(type='LoadAnnotations', with_bbox=True,with_mask=True),
     dict(type='Resize', img_scale=(1333, 800), keep_ratio=True),
     dict(type='RandomFlip', flip_ratio=0.5),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32),
-    dict(type='SoloTrainTrans'),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels','gt_masks','category_targets','point_ins']),
+    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels','gt_masks']),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -82,8 +80,8 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    imgs_per_gpu=3,
-    workers_per_gpu=3,
+    imgs_per_gpu=1,
+    workers_per_gpu=1,
     train=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_train2017.json',
@@ -125,10 +123,10 @@ log_config = dict(
 # yapf:enable
 # runtime settings
 total_epochs = 36
-device_ids = range(8)
+device_ids = range(4)
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = './work_dirs/r50_p3_p7'
+work_dir = './work_dirs/r50_p6'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]
