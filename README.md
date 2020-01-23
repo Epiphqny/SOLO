@@ -25,7 +25,7 @@ The code only implements the simplest version of SOLO:
 
 ## Results
 
-After training 36 epochs on the coco dataset using the resnet-50 backbone, the mAP is 0.221 on val2017 dataset:
+After training 36 epochs on the coco dataset using the resnet-50 backbone, the mAP is 0.221 on COCO val2017 dataset:
 
 ![](AP.png)
 
